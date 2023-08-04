@@ -1,0 +1,204 @@
+import java.text.SimpleDateFormat
+
+buildscript {
+    ext {
+        gradleVersion = '7.3.3'
+        assertJVersion = '3.24.2'
+        atdVersion = '13.1.2'
+        applitoolsAppiumVersion = '5.63.4'
+        seleniumVersion = "4.11.0"
+        commonsLang3Version = '3.13.0'
+        unirestVersion = '3.14.5'
+        jadbVersion = '1.2.1'
+        junitVersion = '5.10.0'
+        slf4jVersion = '2.0.7'
+        fasterxmlJacksonVersion = '2.15.2'
+        jodaTimeVersion = '2.12.5'
+        masterThoughtVersion = '5.7.6'
+        browserStackLocalVersion = '1.1.0'
+        jetbrainsAnnotationsVersion = '24.0.1'
+        aspectJVersion = '1.9.19'
+    }
+}
+
+plugins {
+    id "org.sonarqube" version "4.3.0.3225"
+    id "java"
+    id "idea"
+    id 'com.github.johnrengelman.shadow' version '7.1.2'
+    id 'maven-publish'
+    id("io.freefair.aspectj.post-compile-weaving") version "8.0.1"
+}
+
+group = 'com.github.znsio'
+version '0.0.83'
+
+repositories {
+    mavenLocal()
+    flatDir {
+        dirs 'libs'
+    }
+    mavenCentral()
+    maven {
+        url 'https://jitpack.io'
+    }
+}
+
+configurations {
+    cucumberRuntime {
+        extendsFrom testImplementation
+    }
+}
+
+compileJava {
+    options.encoding = "UTF-8"
+}
+
+
+idea {
+    module {
+        downloadJavadoc = true
+        downloadSources = true
+    }
+}
+
+dependencies {
+    implementation fileTree(dir: "$project.projectDir/libs", include: ['*.jar'])
+    implementation files("$buildDir/classes/main")
+    implementation files("$buildDir/classes/test")
+    implementation "com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:$project.fasterxmlJacksonVersion"
+    implementation "com.konghq:unirest-java:$project.unirestVersion"
+    implementation "org.assertj:assertj-core:$project.assertJVersion"
+    implementation "com.github.AppiumTestDistribution:AppiumTestDistribution:$project.atdVersion"
+    implementation "org.seleniumhq.selenium:selenium-java:$project.seleniumVersion"
+    implementation "org.apache.commons:commons-lang3:$project.commonsLang3Version"
+    implementation "com.github.vidstige:jadb:$project.jadbVersion"
+    implementation "org.jetbrains:annotations:$project.jetbrainsAnnotationsVersion"
+    implementation "org.junit.jupiter:junit-jupiter:$project.junitVersion"
+    implementation "org.slf4j:slf4j-api:$project.slf4jVersion"
+    implementation "joda-time:joda-time:$project.jodaTimeVersion"
+    implementation "com.browserstack:browserstack-local-java:$project.browserStackLocalVersion"
+    implementation "com.applitools:eyes-appium-java5:$project.applitoolsAppiumVersion"
+    implementation "net.masterthought:cucumber-reporting:$masterThoughtVersion"
+    implementation "org.aspectj:aspectjrt:$project.aspectJVersion"
+}
+
+shadowJar {
+    archiveBaseName.set("$project.name")
+    archiveClassifier.set('')
+    archiveVersion.set("$project.version")
+    zip64 true
+    manifest {
+        attributes "Main-Class": "com.znsio.e2e.runner.Runner"
+    }
+}
+
+tasks.register('sourcesJar', Jar) {
+    dependsOn classes
+    archiveClassifier = 'sources'
+    from sourceSets.main.allSource
+}
+
+artifacts {
+    archives sourcesJar
+    archives shadowJar
+}
+
+wrapper {
+    gradleVersion = project.gradleVersion // version from gradle.properties
+}
+
+publishing {
+    publications {
+        testing(MavenPublication) {
+            from components.java
+            artifact sourcesJar
+        }
+    }
+}
+
+tasks.register('install') { dependsOn publishToMavenLocal }
+
+static def getCurrentDatestamp() {
+    Date today = new Date()
+    SimpleDateFormat df = new SimpleDateFormat("MM-dd-yyyy")
+    return df.format(today)
+}
+
+static def getCurrentTimestamp() {
+    Date today = new Date()
+    SimpleDateFormat df = new SimpleDateFormat("HH-mm-ss")
+    return df.format(today)
+}
+
+tasks.register('run', JavaExec) {
+    doFirst {
+        def logDirectory = "target/" + getCurrentDatestamp() + "/" + getCurrentTimestamp()
+        println "Using LOG_DIR: $logDirectory"
+        System.setProperty "LOG_DIR", "$logDirectory"
+
+        def configFile = System.getenv("CONFIG")
+        if (null == configFile || !file(configFile).exists()) {
+            println("CONFIG file not provided, or does not exist")
+            println("Run the test by providing the CONFIG file not provided, or does not exist")
+            assert file(configFile).exists()
+        }
+
+//      You can also specify which config file to use based on the value of RUN_IN_CI as shown below
+//
+//        def isRunInCI = Boolean.parseBoolean(System.getenv("RUN_IN_CI"))
+//        println "isRunningInCI: $isRunInCI"
+//        def configFile = isRunInCI
+//                ? "./configs/theapp_pcloudy_config.properties"
+//                : "./configs/theapp_local_android_config.properties"
+//        configFile = System.getenv("CONFIG") ? System.getenv("CONFIG") : configFile
+
+        systemProperties = System.properties as Map<String, ?>
+        def runnerArgs = [
+                "${configFile}",
+                "com/znsio/teswiz/steps",
+                "./src/test/resources/com/znsio/teswiz/features"
+        ]
+        args = runnerArgs
+
+        println("Debug mode: " + System.getProperty('debug', 'false'))
+        // attach debugger
+        if (System.getProperty('debug', 'false') == 'true') {
+            println("In debug mode")
+            jvmArgs '-Xdebug', '-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,' +
+                    'address=*:5005'
+        }
+    }
+    mainClass = "com.znsio.teswiz.runner.Runner"
+    classpath = configurations.cucumberRuntime + sourceSets.main.output + sourceSets.test.output
+}
+
+test {
+    useJUnitPlatform()
+
+    outputs.upToDateWhen { false }
+
+    testLogging {
+        events "started", "passed", "skipped", "failed"
+        // show standard out and standard error of the test JVM(s) on the console
+        showStandardStreams = true
+        // show full exception trace
+        exceptionFormat = 'full'
+        showStackTraces = true
+        showCauses = true
+        showExceptions = true
+    }
+
+    // attach debugger
+    if (System.getProperty('debug', 'false') == 'true') {
+        jvmArgs '-Xdebug', '-agentlib:jdwp=transport=dt_socket,server=n,address=192.168.29.248:9009,suspend=y'
+    }
+//    reports {
+//        html.enabled(true)
+//        junitXml.enabled(true)
+//        html.destination(file("$buildDir/unit-test-results"))
+//        junitXml.destination(file("$buildDir/unit-test-results"))
+//    }
+}
+
+shadowJar.finalizedBy sourcesJar
