@@ -22,8 +22,6 @@ import java.net.URL;
 import java.util.ArrayList;
 import java.util.Optional;
 
-import static java.sql.DriverManager.getDriver;
-
 public class NetworkInterceptorCheck {
     public static void main(String[] args) throws MalformedURLException, InterruptedException {
 
@@ -39,7 +37,9 @@ public class NetworkInterceptorCheck {
         // docker / firefox / devtools - no
 
 
-        WebDriver driver = createDriver();
+        String driverType = getBrowserType();
+
+        WebDriver driver = createDriver(driverType);
 
         DevTools devTools = null;
         ArrayList capturedTraffic;
@@ -63,7 +63,7 @@ public class NetworkInterceptorCheck {
 
         driver.get("http://google.com");
         waitFor(2);
-        takeScreenShot(driver, "landing");
+        takeScreenShot(driver, driverType, "landing");
 
         if (isDevToolsEnabled()) {
             System.out.println(capturedTraffic);
@@ -73,11 +73,7 @@ public class NetworkInterceptorCheck {
         driver.quit();
     }
 
-    private static WebDriver createDriver() throws MalformedURLException {
-        String driverType = System.getenv("browser");
-        if ((null == driverType) || (driverType.isEmpty())) {
-            driverType = "chrome";
-        }
+    private static WebDriver createDriver(String driverType) throws MalformedURLException {
         switch (driverType.toLowerCase()) {
             case "remote-chrome":
                 return new RemoteWebDriver(new URL("http://localhost:4444/wd/hub"), new ChromeOptions());
@@ -90,6 +86,14 @@ public class NetworkInterceptorCheck {
         }
     }
 
+    private static String getBrowserType() {
+        String driverType = System.getenv("browser");
+        if ((null == driverType) || (driverType.isEmpty())) {
+            driverType = "chrome";
+        }
+        return driverType;
+    }
+
     private static boolean isDevToolsEnabled() {
         boolean isEnabled = null != System.getenv("devtools") && Boolean.parseBoolean(System.getenv("devtools"));
         System.out.printf("Should DevTools be enabled? : %s%n", isEnabled);
@@ -100,10 +104,10 @@ public class NetworkInterceptorCheck {
         Thread.sleep(numberOfSeconds * 1000L);
     }
 
-    private static void takeScreenShot(WebDriver driver, String fileName) {
+    private static void takeScreenShot(WebDriver driver, String driverType, String fileName) {
         if (null != driver) {
             String directoryPath = System.getProperty("user.dir");
-            File destinationFile = createScreenshotFile(directoryPath, fileName);
+            File destinationFile = createScreenshotFile(directoryPath, driverType + "-" + fileName);
             System.out.println("The screenshot will be placed here : " + destinationFile.getAbsolutePath());
             try {
                 File screenshot = ((TakesScreenshot) driver).getScreenshotAs(OutputType.FILE);
