@@ -48,6 +48,7 @@ dependencies {
     implementation files("$buildDir/classes/main")
     implementation files("$buildDir/classes/test")
     implementation "org.seleniumhq.selenium:selenium-java:$project.seleniumVersion"
+    implementation "org.seleniumhq.selenium:selenium-http-jdk-client:$project.seleniumVersion"
     implementation "org.apache.commons:commons-lang3:$project.commonsLang3Version"
     implementation "commons-io:commons-io:$project.commonsIOVersion"
 }

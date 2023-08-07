@@ -25,6 +25,11 @@ import java.util.Optional;
 public class NetworkInterceptorCheck {
     public static void main(String[] args) throws MalformedURLException, InterruptedException {
 
+        // Set the system property to indicate that Java 11+ Http client needs to be used.
+        // By default, it uses the AsyncHttpClient.
+        // https://www.selenium.dev/blog/2022/using-java11-httpclient/
+        System.setProperty("webdriver.http.factory", "jdk-http-client");
+
         // where? // browser // devtools enabled? // status
         // local / chrome / no devtools - yes
         // local / chrome / devtools - yes
@@ -35,7 +40,6 @@ public class NetworkInterceptorCheck {
         // local / firefox / devtools - no
         // docker / firefox / no devtools - yes
         // docker / firefox / devtools - no
-
 
         String driverType = getBrowserType();
 
