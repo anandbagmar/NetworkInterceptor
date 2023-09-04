@@ -1,7 +1,7 @@
 buildscript {
     ext {
         gradleVersion = '8.2.1'
-        seleniumVersion = "4.11.0"
+        seleniumVersion = "4.12.1"
         commonsLang3Version = "3.13.0"
         commonsIOVersion = "2.13.0"
     }
